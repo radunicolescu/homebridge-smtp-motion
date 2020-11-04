@@ -10,6 +10,7 @@ import Bunyan from 'bunyan';
 import http from 'http';
 import EscapeRegExp from 'lodash.escaperegexp';
 import { SMTPServer } from 'smtp-server';
+import { simpleParser } from 'mailparser';
 import Stream from 'stream';
 import { SmtpMotionPlatformConfig } from './configTypes';
 
@@ -58,6 +59,15 @@ class SmtpMotionPlatform implements DynamicPlatformPlugin {
       onData(stream, session, callback): void {
         stream.on('data', () => {}); // eslint-disable-line @typescript-eslint/no-empty-function
         stream.on('end', callback);
+
+        simpleParser(stream, {})
+    .then(parsed => {
+      log(JSON.stringify(parsed))
+    })
+    .catch(err => {
+      log.error(err)
+    });
+
         session.envelope.rcptTo.forEach((rcptTo) => {
           const name = rcptTo.address.split('@')[0].replace(regex, ' ');
           log('[' + name + '] Email received.');
