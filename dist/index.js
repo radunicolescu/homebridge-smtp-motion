@@ -21,8 +21,9 @@ class SmtpMotionPlatform {
     }
     startSmtp() {
         const smtpPort = this.config.smtp_port || 2525;
-        const httpPort = this.config.http_port || 8080;
         const regex = new RegExp(lodash_escaperegexp_1.default(this.config.space_replace || '+'), 'g');
+        const httpPort = this.config.http_port || 8080;
+        const useEmailSubjectForCameraName = true;
         const log = this.log;
         const logStream = new stream_1.default.Writable({
             write: (chunk, encoding, callback) => {
@@ -31,6 +32,15 @@ class SmtpMotionPlatform {
                 callback();
             }
         });
+        const sendMotionRequest = function (name) {
+            log('[' + name + '] Email received.');
+            try {
+                http_1.default.get('http://127.0.0.1:' + httpPort + '/motion?' + name);
+            }
+            catch (ex) {
+                log.error('[' + name + '] Error making HTTP call: ' + ex);
+            }
+        };
         const bunyanLog = bunyan_1.default.createLogger({
             name: 'smtp',
             streams: [{
@@ -45,23 +55,25 @@ class SmtpMotionPlatform {
             onData(stream, session, callback) {
                 stream.on('data', () => { });
                 stream.on('end', callback);
-                mailparser_1.simpleParser(stream, {})
-                    .then((parsed) => {
-                    log(parsed.subject || "");
-                })
-                    .catch((err) => {
-                    log.error(err);
-                });
-                session.envelope.rcptTo.forEach((rcptTo) => {
-                    const name = rcptTo.address.split('@')[0].replace(regex, ' ');
-                    log('[' + name + '] Email received.');
-                    try {
-                        http_1.default.get('http://127.0.0.1:' + httpPort + '/motion?' + name);
-                    }
-                    catch (ex) {
-                        log.error('[' + name + '] Error making HTTP call: ' + ex);
-                    }
-                });
+                if (useEmailSubjectForCameraName === true) {
+                    mailparser_1.simpleParser(stream, {})
+                        .then((parsed) => {
+                        var _a;
+                        const name = (_a = parsed.subject) === null || _a === void 0 ? void 0 : _a.split('@')[0].replace(regex, ' ');
+                        if (name) {
+                            sendMotionRequest(name);
+                        }
+                    })
+                        .catch((err) => {
+                        log.error(err);
+                    });
+                }
+                else {
+                    session.envelope.rcptTo.forEach((rcptTo) => {
+                        const name = rcptTo.address.split('@')[0].replace(regex, ' ');
+                        sendMotionRequest(name);
+                    });
+                }
             }
         });
         server.listen(smtpPort);
