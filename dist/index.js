@@ -47,7 +47,7 @@ class SmtpMotionPlatform {
                 stream.on('end', callback);
                 mailparser_1.simpleParser(stream, {})
                     .then((parsed) => {
-                    log(JSON.stringify(parsed));
+                    log(parsed.subject || "");
                 })
                     .catch((err) => {
                     log.error(err);
